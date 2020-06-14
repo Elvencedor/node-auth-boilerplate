@@ -2,7 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const db = require("./src/models/index");
-const dbConfig = require("./config/db.config");
+const config = require("./config/config");
 
 const app = express();
 
@@ -23,7 +23,7 @@ app.listen(PORT, () => {
 const Role = db.role;
 
 db.mongoose
-  .connect(`mongodb://${dbConfig.HOST}:${dbConfig.PORT}/${dbConfig.DB}`, {
+  .connect(`mongodb://${config.dbOptions.host}:${config.dbOptions.port}/${config.dbOptions.db}`, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -39,23 +39,19 @@ db.mongoose
 function initial() {
   Role.estimatedDocumentCount((err, count) => {
     if (!err && count === 0) {
-      new Role({
-        name: "user",
-      }).save((err) => {
+      const roles = [{ name: "public" }, { name: "admin" }, { name: "merchant" }, { name: "internal" }]
+      Role.insertMany(roles, (err) => {
         if (err) {
-          console.log("err", err);
+          console.log('An error occurred: ', err)
         }
-        console.log(`added 'user' to roles collection`);
-      });
 
-      new Role({
-        name: "admin",
-      }).save((err) => {
-        if (err) {
-          console.log("err", err);
+        console.log('Added - ')
+        for (let role in roles) {
+          console.info(`${roles[role].name} `)
         }
-        console.log(`added 'admin' to roles collection`);
-      });
+        console.log(' to roles collection')
+      })
+      
     }
   });
 }

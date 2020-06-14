@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const session = require('sessionstorage')
-const config = require("../../config/auth.config");
+const config = require("../../config/config");
 const db = require("../models");
 
 const user = db.user;
@@ -13,7 +13,7 @@ verifyToken = (req, res, next) => {
     return res.status(403).send({ message: "Invalid or no token provided" });
   }
 
-  jwt.verify(token, config.secret, (err, decoded) => {
+  jwt.verify(token, config.auth.secret, (err, decoded) => {
     if (err) {
       return res.status(401).send({ message: `Unauthorized: ${err}` });
     }
@@ -60,7 +60,7 @@ const fetchSelf = (req, res, next) => {
       return res.status(403).send({ message: "Invalid or no token provided" });
     }
 
-    jwt.verify(token, config.secret, (err, decoded) => {
+    jwt.verify(token, config.auth.secret, (err, decoded) => {
       if (err) {
         return res.status(401).send({ message: `Unauthorized: ${err}` });
       }
@@ -84,7 +84,7 @@ const fetchUserById = (req, res) => {
       return res.status(403).send({ message: "Invalid or no token provided" });
     }
 
-    jwt.verify(token, config.secret, (err, decoded) => {
+    jwt.verify(token, config.auth.secret, (err, decoded) => {
       if (err) {
         return res.status(401).send({ message: `Unauthorized: ${err}` });
       }
@@ -132,9 +132,35 @@ const fetchAllUsers = (req, res) => {
   })
 }
 
+const isMerchant = (req, res, next) => {
+  user.findById(req.userId).exec((err, user) => {
+    if (err) {
+      res.status(500).send({ message: err });
+      return;
+    }
+
+    role.find({ _id: { $in: user.roles } }, (err, roles) => {
+      if (err) {
+        res.status(500).send({ message: err });
+        return;
+      }
+
+      for (let i = 0; i < roles.length; i++) {
+        if (roles[i].name === "merchant") {
+          next();
+          return;
+        }
+      }
+
+      res.status(403).send({ message: "Merchant role required to access a store!" });
+    });
+  });
+}
+
 const authJwt = {
   verifyToken,
   isAdmin,
+  isMerchant,
   fetchSelf,
   fetchUserById,
   fetchAllUsers

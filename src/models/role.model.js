@@ -2,7 +2,11 @@ const mongoose = require('mongoose')
 const Role = mongoose.model(
   'Role',
   new mongoose.Schema({
-    name: String
+    name: {
+      type: String,
+      enum: ['admin', 'public', 'internal', 'merchant'],
+      required: true
+    }
   })
 )
 

@@ -1,56 +1,49 @@
 const db = require("../models");
 
-const ROLES = db.ROLES;
 const User = db.user;
-
+const Roles = db.role;
 
 duplicityCheck = (req, res, next) => {
   User.findOne({
-    username: req.body.username
+    email: req.body.email,
   }).exec((err, user) => {
     if (err) {
-      res.status(500).send({ message: err })
+      res.status(500).send({ message: err });
       return;
     }
+
     if (user) {
-      res.status(400).send({ message: "User already exists, you can't create multiple accounts!" })
+      res
+        .status(400)
+        .send({
+          message: "Email already exists, you can't create multiple accounts!",
+        });
       return;
     }
 
-    User.findOne({
-      email: req.body.email
-    }).exec((err, user) => {
-      if (err) {
-        res.status(500).send({ message: err })
-        return;
-      }
-
-      if (user) {
-        res.status(400).send({message: "Email already exists, you can't create multiple accounts!"})
-        return;
-      }
-
-      next()
-    })
-  })
-}
+    next();
+  });
+};
 
 roleValidityCheck = (req, res, next) => {
+  const ROLES = db.ROLES;
   if (req.body.roles) {
     for (let i = 0; i < req.body.roles.length; i++) {
       if (!ROLES.includes(req.body.roles[i])) {
-        res.status(400).send({ message: 'invalid user role specified!' })
+        res.status(400).send({
+          message: `invalid user role '${req.body.roles[i]}' specified!`,
+        });
         return;
       }
     }
   }
 
-  next()
-}
+  next();
+};
 
 const verifyUser = {
   duplicityCheck,
-  roleValidityCheck
-}
+  roleValidityCheck,
+};
 
-module.exports = verifyUser
+module.exports = verifyUser;

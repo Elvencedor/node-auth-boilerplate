@@ -27,4 +27,10 @@ module.exports = function (app) {
     [authJwt.verifyToken, authJwt.isAdmin],
     controller.adminBoard
   )
+
+  app.get(
+    '/api/stores/access',
+    [authJwt.verifyToken, authJwt.isMerchant],
+    controller.merchantStore
+  )
 }
