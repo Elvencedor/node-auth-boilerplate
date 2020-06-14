@@ -91,6 +91,7 @@ exports.signin = (req, res) => {
   if (value) {
     if (error) {
       res.status(500).send({message: error.details})
+      return;
     }
 
     user
