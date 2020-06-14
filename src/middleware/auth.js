@@ -23,6 +23,7 @@ verifyToken = (req, res, next) => {
 };
 
 isAdmin = (req, res, next) => {
+
   user.findById(req.userId).exec((err, user) => {
     if (err) {
       res.status(500).send({ message: err });
@@ -49,72 +50,88 @@ isAdmin = (req, res, next) => {
 
 const fetchSelf = (req, res, next) => {
   const userId = session.getItem('userId')
-  user.findById(userId).exec((err, user) => {
-    if (err) {
-      res.status(400).send("User could not be found!");
-    }
 
-    let token = req.headers["x-access-token"];
-
-    if (!token) {
-      return res.status(403).send({ message: "Invalid or no token provided" });
-    }
-
-    jwt.verify(token, config.auth.secret, (err, decoded) => {
+  if (userId) {
+    user.findById(userId).exec((err, user) => {
       if (err) {
-        return res.status(401).send({ message: `Unauthorized: ${err}` });
+        res.status(400).send("User could not be found!");
       }
-    });
 
-    res.status(200).send({ message: {"username": user.username, "email": user.email} });
-  });
+      let token = req.headers["x-access-token"];
+
+      if (!token) {
+        return res
+          .status(403)
+          .send({ message: "Invalid or no token provided" });
+      }
+
+      jwt.verify(token, config.auth.secret, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: `Unauthorized: ${err}` });
+        }
+      });
+
+      res
+        .status(200)
+        .send({ message: { username: user.username, email: user.email } });
+    });
+  } else {
+    res.status(400).send({message: 'session not set or expired. Login to continue'})
+  }
+  
 };
 
 const fetchUserById = (req, res) => {
   const id = req.query.id
   const userId = session.getItem("userId");
-  user.findById(userId).exec((err, user) => {
-    if (err) {
-      res.status(400).send("User could not be found!");
-    }
 
-    let token = req.headers["x-access-token"];
-
-    if (!token) {
-      return res.status(403).send({ message: "Invalid or no token provided" });
-    }
-
-    jwt.verify(token, config.auth.secret, (err, decoded) => {
+  if (userId) {
+    user.findById(userId).exec((err, user) => {
       if (err) {
-        return res.status(401).send({ message: `Unauthorized: ${err}` });
-      }
-    });
-
-    role.find({ _id: { $in: user.roles } }, (err, roles) => {
-      if (err) {
-        res.status(500).send({ message: err });
-        return;
+        res.status(400).send("User could not be found!");
       }
 
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i].name === "admin") {
-          user.findById(id).exec((err, user) => {
-            if (err) {
-              res.status(400).send("User could not be found!");
-            }
+      let token = req.headers["x-access-token"];
 
-            res
-              .status(200)
-              .send({
+      if (!token) {
+        return res
+          .status(403)
+          .send({ message: "Invalid or no token provided" });
+      }
+
+      jwt.verify(token, config.auth.secret, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: `Unauthorized: ${err}` });
+        }
+      });
+
+      role.find({ _id: { $in: user.roles } }, (err, roles) => {
+        if (err) {
+          res.status(500).send({ message: err });
+          return;
+        }
+
+        for (let i = 0; i < roles.length; i++) {
+          if (roles[i].name === "admin") {
+            user.findById(id).exec((err, user) => {
+              if (err) {
+                res.status(400).send("User could not be found!");
+              }
+
+              res.status(200).send({
                 message: { username: user.username, email: user.email },
               });
-          });
+            });
+          }
         }
-      }
 
-      res.status(403).send({ message: "Admin role required!" });
+        res.status(403).send({ message: "Admin role required!" });
+      });
     });
-  });
+  } else {
+    res.status(400).send({message: 'session not set or expired. Login to continue'})
+  }
+  
   
 }
 
@@ -133,28 +150,35 @@ const fetchAllUsers = (req, res) => {
 }
 
 const isMerchant = (req, res, next) => {
-  user.findById(req.userId).exec((err, user) => {
-    if (err) {
-      res.status(500).send({ message: err });
-      return;
-    }
-
-    role.find({ _id: { $in: user.roles } }, (err, roles) => {
+  if (req.userId) {
+    user.findById(req.userId).exec((err, user) => {
       if (err) {
         res.status(500).send({ message: err });
         return;
       }
 
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i].name === "merchant") {
-          next();
+      role.find({ _id: { $in: user.roles } }, (err, roles) => {
+        if (err) {
+          res.status(500).send({ message: err });
           return;
         }
-      }
 
-      res.status(403).send({ message: "Merchant role required to access a store!" });
+        for (let i = 0; i < roles.length; i++) {
+          if (roles[i].name === "merchant") {
+            next();
+            return;
+          }
+        }
+
+        res
+          .status(403)
+          .send({ message: "Merchant role required to access a store!" });
+      });
     });
-  });
+  } else {
+    res.status(400).send({message: 'session not set or expired. Login to continue'})
+  }
+  
 }
 
 const authJwt = {

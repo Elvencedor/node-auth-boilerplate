@@ -150,27 +150,34 @@ exports.signin = (req, res) => {
 
 exports.mailHandler = (req, res) => {
   const userId = session.getItem("userId");
-  user.findById(userId).exec((err, user) => {
-    if (err) {
-      res.status(400).send("Unauthorized access, please login!");
-    }
+  if (userId) {
+    user.findById(userId).exec((err, user) => {
+      if (err) {
+        res.status(400).send("Unauthorized access, please login!");
+      }
 
-    var token = jwt.sign({ id: user.id }, config.auth.secret, {
-      expiresIn: 86400,
-    });
+      var token = jwt.sign({ id: user.id }, config.auth.secret, {
+        expiresIn: "120000",
+      });
 
-    const html = `<p> Please use the link below to reset your password.</p>
+      const html = `<p> Please use the link below to reset your password.</p>
     <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&id=${user._id}">click here to reset your password</a></p>`;
 
-    send_mail({
-      to: config.nodemailerOptions.from,
-      subject: "password reset verification",
-      html: `<h3>Reset password</h3>
+      send_mail({
+        to: config.nodemailerOptions.from,
+        subject: "password reset verification",
+        html: `<h3>Reset password</h3>
       <p>${html}</p>`,
-    });
+      });
 
-    res.status(200).send({ message: "Mail sent successfully.", token: token });
-  });
+      res
+        .status(200)
+        .send({ message: "Mail sent successfully.", token: token });
+    });
+  } else {
+    res.status(400).send({message: 'session not set or expired. Login to continue'})
+  }
+  
 };
 
 exports.resetPassword = (req, res) => {
@@ -179,7 +186,7 @@ exports.resetPassword = (req, res) => {
     if (err) {
       return res
         .status(401)
-        .send({ message: `Unauthorized access: ${req.query.token}` });
+        .send({ message: `Unauthorized access: ${err}` });
     }
 
     user.findById(req.query.id).exec((err, user) => {
