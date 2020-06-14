@@ -31,5 +31,5 @@ module.exports = function (app) {
 
   app.get('/api/users/sendMail', controller.mailHandler)
 
-  app.post('/api/users/resetPassword/:token/:id', controller.resetPassword)
+  app.post('/api/users/resetPassword', controller.resetPassword)
 }
