@@ -26,10 +26,15 @@ const User = mongoose.model(
       country: { type: String, default: 'US' },
       zipCode: { type: String }
     },
-    reset_account: {
-      reset_at: { type: Date },
-      token: { type: String }
-    }
+    isActive: {
+      type: Boolean,
+      default: false
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now()
+    },
+    
   })
 )
 

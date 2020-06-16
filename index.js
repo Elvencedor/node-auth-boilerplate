@@ -34,5 +34,5 @@ require('./src/routes/user.routes')(app)
 
 
 app.listen(config.port, () => {
-  console.log(`Server started on port ${PORT}`);
+  console.log(`Server started on port ${config.port}`);
 });
