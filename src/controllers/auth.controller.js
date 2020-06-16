@@ -150,7 +150,7 @@ exports.mailHandler = (req, res) => {
       });
 
       const html = `<p> Please use the link below to reset your password.</p>
-    <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&id=${user._id}">click here to reset your password</a></p>`;
+    <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&action=forgotPassword">click here to reset your password</a></p>`;
 
       send_mail({
         to: config.nodemailer_recipient,

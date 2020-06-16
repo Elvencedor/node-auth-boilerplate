@@ -22,7 +22,6 @@ db.mongoose
   })
   .then(() => {
     console.log("Database connection successful");
-    initial();
   })
   .catch((err) => {
     console.error("Connection to database failed", err);
