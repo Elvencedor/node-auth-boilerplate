@@ -26,8 +26,7 @@ duplicityCheck = (req, res, next) => {
 };
 
 const verifyUser = {
-  duplicityCheck,
-  roleValidityCheck,
+  duplicityCheck
 };
 
 module.exports = verifyUser;

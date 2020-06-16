@@ -131,22 +131,38 @@ exports.signin = (req, res) => {
 
 // handler for sending mail to users
 exports.mailHandler = (req, res) => {
-  // token to be sign off with password reset request
-  var token = jwt.sign({ action: "forgotPassword" }, config.auth.secret, {
-    expiresIn: "120000",
-  });
+  user.findOne({ email: req.body.email }).exec((err, result) => {
+    if (err) {
+      return res
+        .status(500)
+        .send({ message: `An unknown error occurred - ${err}` });
+    }
 
-  const html = `<p> Please use the link below to reset your password.</p>
+    if (!result) {
+       return res.status(404).send({
+         message: `You can't reset password with email not registered with the system.`,
+       });
+    }
+    // token to be sign off with password reset request
+      var token = jwt.sign({ action: "forgotPassword" }, config.auth.secret, {
+        expiresIn: "120000",
+      });
+
+      const html = `<p> Please use the link below to reset your password.</p>
     <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&action=forgotPassword">click here to reset your password</a></p>`;
 
-  send_mail({
-    to: config.nodemailer_recipient,
-    subject: "password reset verification",
-    html: `<h3>Reset password</h3>
+      send_mail({
+        to: config.nodemailer_recipient,
+        subject: "password reset verification",
+        html: `<h3>Reset password</h3>
       <p>${html}</p>`,
-  });
+      });
 
-  res.status(200).send({ message: "Mail sent successfully.", token: token });
+      res.status(200).send({
+        message: "Mail sent successfully.",
+        token: token,
+      });
+  });
 };
 
 exports.resetPassword = (req, res) => {
@@ -155,25 +171,14 @@ exports.resetPassword = (req, res) => {
     if (err) {
       return res.status(401).send({ message: `Unauthorized access: ${err}` });
     }
-    if (req.query.id) {
-      user.findById(req.query.id).exec((err, user) => {
-        if (err) {
-          res.status(400).send("Unauthorized access!");
-        }
 
-        var initialVal = { password: `${user.password}` };
-        var newVal = {
-          $set: { password: `${bcrypt.hashSync(req.body.password, 8)}` },
-        };
+    var initialVal = { password: `${user.password}` };
+    var newVal = {
+      $set: { password: `${bcrypt.hashSync(req.body.password, 8)}` },
+    };
 
-        user.updateOne(initialVal, newVal);
+    user.updateOne(initialVal, newVal);
 
-        res.status(200).send({ message: "Password reset was successful" });
-      });
-    } else {
-      res
-        .status(400)
-        .sent(`Invalid access, user id doesn't exist on the system`);
-    }
+    res.status(200).send({ message: "Password reset was successful" });
   });
 };
