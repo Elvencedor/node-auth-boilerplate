@@ -3,9 +3,9 @@ API for user authentication and authorization using nodejs + express, mongoDB as
 
 # Installation
 To install, run the following commands
-yarn 
+> yarn 
 or
-npm install 
+> npm install 
 
 # Configuration
 Create a .env file using the .env.example as a template and pass in the necessary variable values and you're set to go
