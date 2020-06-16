@@ -13,17 +13,23 @@ exports.signup = (req, res) => {
   const schema = joi.object({
     email: joi
       .string()
-      .email({ minDomainSegments: 2, tlds: { allow: ["com", "net"] } })
-      .required(),
-    password: joi.string().min(8),
-    roles: joi.array.items(joi.string())
+      .email()
+      .required()
+      .description('email is required'),
+    password: joi
+      .string()
+      .min(8),
+    role: joi
+      .string()
+      .allow('admin', 'public', 'internal', 'merchant')
+      .default('public')
   });
   
   // validate user request and destructure joi validation result
   const { value, error } = schema.required().validate({
     email: req.body.email,
     password: req.body.password,
-    roles:[req.body.roles]
+    role: req.body.role
   });
 
   if (value) {
@@ -36,17 +42,22 @@ exports.signup = (req, res) => {
     const User = new user({
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 8),
-      roles: req.body.roles
+      role: req.body.role
     });
 
     // create new user document in database
+    try {
+      await User
+    } catch (error) {
+      
+    }
     User.save((err, user) => {
       if (err) {
         res.status(500).send({ message: err });
         return;
       }
 
-      res.status(200).send({ message: "User registration successful!" });
+      return res.status(200).send({ message: "User registration successful!" });
     });
   }
 };
