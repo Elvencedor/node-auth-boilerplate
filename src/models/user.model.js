@@ -11,14 +11,26 @@ const User = mongoose.model(
       type: String,
       required: true
     },
-    roles: [
-      {
-        type: String,
-        enum: ['public','merchant','internal','admin'],
-        default: 'public'
-      }
-    ]
+    role: {
+      type: String,
+      enum: ['public','merchant','internal','admin'],
+      default: 'public' 
+    },
+    phone: {
+      type: String
+    },
+    address: {
+      street: { type: String },
+      city: { type: String },
+      state: { type: String },
+      country: { type: String, default: 'US' },
+      zipCode: { type: String }
+    },
+    reset_account: {
+      reset_at: { type: Date },
+      token: { type: String }
+    }
   })
 )
 
-module.exports = User
+module.exports = User;

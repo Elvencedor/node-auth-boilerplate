@@ -1,6 +1,6 @@
 const mongoose = require('mongoose')
 
-const store = mongoose.model(
+const Store = mongoose.model(
   'Store',
   new mongoose.Schema({
     name: {
@@ -18,11 +18,11 @@ const store = mongoose.model(
       type: String,
       required: true
     },
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+    slug: {
+      type: String,
+      required: true
     }
   })
 )
 
-module.exports = store
+module.exports = Store;
