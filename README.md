@@ -1,7 +1,7 @@
 # node-auth-boilerplate
 API for user authentication and authorization using nodejs + express, mongoDB as database
 
-#Installation
+# Installation
 To install, run the following commands
 yarn 
 or
