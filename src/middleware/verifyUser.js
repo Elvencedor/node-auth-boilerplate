@@ -1,8 +1,8 @@
 const db = require("../models");
 
 const User = db.user;
-const Roles = db.role;
 
+// check for user object duplicates in database
 duplicityCheck = (req, res, next) => {
   User.findOne({
     email: req.body.email,
@@ -25,20 +25,24 @@ duplicityCheck = (req, res, next) => {
   });
 };
 
+// check for existence of specified role on user request
 roleValidityCheck = (req, res, next) => {
   const ROLES = db.ROLES;
   if (req.body.roles) {
-    for (let i = 0; i < req.body.roles.length; i++) {
-      if (!ROLES.includes(req.body.roles[i])) {
-        res.status(400).send({
-          message: `invalid user role '${req.body.roles[i]}' specified!`,
-        });
-        return;
+    // iterate through roles array and compare against request body
+    for (let i = 0; i < ROLES.length; i++) {
+      if (ROLES[i] == req.body.roles) {
+        next();
       }
     }
+
+    res.status(400).send({
+      message: `invalid user role '${req.body.roles}' specified!`,
+    });
+    return;
   }
 
-  next();
+  
 };
 
 const verifyUser = {

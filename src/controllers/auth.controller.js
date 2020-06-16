@@ -7,20 +7,23 @@ var session = require("sessionstorage");
 const joi = require("@hapi/joi");
 
 const user = db.user;
-const role = db.role;
 
 exports.signup = (req, res) => {
+  // define joi schema
   const schema = joi.object({
     email: joi
       .string()
       .email({ minDomainSegments: 2, tlds: { allow: ["com", "net"] } })
       .required(),
     password: joi.string().min(8),
+    roles: joi.array.items(joi.string())
   });
-
+  
+  // validate user request and destructure joi validation result
   const { value, error } = schema.required().validate({
     email: req.body.email,
     password: req.body.password,
+    roles:[req.body.roles]
   });
 
   if (value) {
@@ -28,51 +31,29 @@ exports.signup = (req, res) => {
       res.status(500).send({ message: error.details });
       return;
     }
+
+    // instantiate user model
     const User = new user({
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 8),
+      roles: req.body.roles
     });
 
+    // create new user document in database
     User.save((err, user) => {
       if (err) {
         res.status(500).send({ message: err });
         return;
       }
 
-      if (req.body.roles) {
-        role.find({ name: { $in: req.body.roles } }, (err, roles) => {
-          if (err) {
-            res.status(500).send({ message: err });
-            return;
-          }
-
-          user.roles = roles.map((role) => role._id);
-          user.save((err) => {
-            if (err) {
-              res.status(500).send({ message: err });
-              return;
-            }
-
-            res.send({ message: "User registration successful!" });
-          });
-        });
-      } else {
-        role.findOne({ name: "user" }, (err, role) => {
-          user.save((err) => {
-            if (err) {
-              res.status(500).send({ message: err });
-              return;
-            }
-
-            res.send({ message: "User registration successful!" });
-          });
-        });
-      }
+      res.status(200).send({ message: "User registration successful!" });
     });
   }
 };
 
 exports.signin = (req, res) => {
+
+  // define joi schema
   const schema = joi.object({
     email: joi
       .string()
@@ -81,6 +62,7 @@ exports.signin = (req, res) => {
     password: joi.string().min(8),
   });
 
+  // validate user request and destructure joi validation result
   const { value, error } = schema.required().validate({
     email: req.body.email,
     password: req.body.password,
@@ -96,7 +78,6 @@ exports.signin = (req, res) => {
       .findOne({
         email: req.body.email,
       })
-      .populate("roles", "-__v")
       .exec((err, user) => {
         if (err) {
           res.status(500).send({ message: err });
@@ -107,6 +88,7 @@ exports.signin = (req, res) => {
           return res.status(404).send({ message: "User not found." });
         }
 
+        // compare for validity of password string
         var passwordIsValid = bcrypt.compareSync(
           req.body.password,
           user.password
@@ -119,15 +101,12 @@ exports.signin = (req, res) => {
           });
         }
 
+        // sign off new token with the request
         var token = jwt.sign({ id: user.id }, config.auth.secret, {
           expiresIn: 86400,
         });
 
-        var authorities = [];
-
-        for (let i = 0; i < user.roles.length; i++) {
-          authorities.push("ROLE_" + user.roles[i].name.toUpperCase());
-        }
+         const authorities = `ROLE_ ${user.roles.name.toUpperCase()}`;
 
         if (!session.getItem("userId")) {
           session.setItem("userId", `${user._id}`);
@@ -144,14 +123,17 @@ exports.signin = (req, res) => {
   }
 };
 
+// handler for sending mail to users
 exports.mailHandler = (req, res) => {
   const userId = session.getItem("userId");
   if (userId) {
     user.findById(userId).exec((err, user) => {
       if (err) {
-        res.status(400).send("Unauthorized access, please login!");
+        res.status(500).send("Unauthorized access, please login!");
+        return;
       }
 
+      // token to be sign off with password reset request
       var token = jwt.sign({ id: user.id }, config.auth.secret, {
         expiresIn: "120000",
       });
@@ -159,7 +141,7 @@ exports.mailHandler = (req, res) => {
       const html = `<p> Please use the link below to reset your password.</p>
     <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&id=${user._id}">click here to reset your password</a></p>`;
 
-      const sender = send_mail({
+      send_mail({
         to: config.nodemailer_recipient,
         subject: "password reset verification",
         html: `<h3>Reset password</h3>
@@ -198,8 +180,10 @@ exports.resetPassword = (req, res) => {
 
         res.status(200).send({ message: "Password reset was successful" });
       });
-    }else {
-      res.status(400).sent(`Invalid access, user id doesn't exist on the system`)
+    } else {
+      res
+        .status(400)
+        .sent(`Invalid access, user id doesn't exist on the system`);
     }
   });
 };
