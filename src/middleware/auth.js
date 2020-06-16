@@ -1,9 +1,9 @@
 const jwt = require("jsonwebtoken");
 const session = require('sessionstorage')
-const config = require("../../config/config");
+const config = require("../../config/index");
 const db = require("../models");
 
-const user = db.user;
+const user = db.User;
 
 // verify token sent with request header or body
 const verifyToken = (req, res, next) => {

@@ -4,7 +4,7 @@ API for user authentication and authorization using nodejs + express, mongoDB as
 # Installation
 To install, run the following commands
 > yarn 
-or
+ or
 > npm install 
 
 # Configuration

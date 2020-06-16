@@ -1,4 +1,4 @@
-const config = require("../../config/config");
+const config = require("../../config/index");
 const db = require("../models");
 const send_mail = require("./mailer");
 var jwt = require("jsonwebtoken");
@@ -6,30 +6,24 @@ var bcrypt = require("bcryptjs");
 var session = require("sessionstorage");
 const joi = require("@hapi/joi");
 
-const user = db.user;
+const user = db.User;
 
 exports.signup = (req, res) => {
   // define joi schema
   const schema = joi.object({
-    email: joi
-      .string()
-      .email()
-      .required()
-      .description('email is required'),
-    password: joi
-      .string()
-      .min(8),
+    email: joi.string().email().required().description("email is required"),
+    password: joi.string().min(8),
     role: joi
       .string()
-      .allow('admin', 'public', 'internal', 'merchant')
-      .default('public')
+      .allow("public", "internal", "merchant")
+      .default("public"),
   });
-  
+
   // validate user request and destructure joi validation result
   const { value, error } = schema.required().validate({
     email: req.body.email,
     password: req.body.password,
-    role: req.body.role
+    role: req.body.role,
   });
 
   if (value) {
@@ -42,28 +36,29 @@ exports.signup = (req, res) => {
     const User = new user({
       email: req.body.email,
       password: bcrypt.hashSync(req.body.password, 8),
-      role: req.body.role
+      role: req.body.role,
+      address: req.body.address,
     });
 
     // create new user document in database
     try {
-      await User
-    } catch (error) {
-      
-    }
-    User.save((err, user) => {
-      if (err) {
-        res.status(500).send({ message: err });
-        return;
-      }
+      User.save((err, user) => {
+        if (err) {
+          res.status(500).send({ message: err });
+          return;
+        }
 
-      return res.status(200).send({ message: "User registration successful!" });
-    });
+        return res
+          .status(200)
+          .send({ message: "User registration successful!" });
+      });
+    } catch (error) {
+      return res.status(403).send(`An error occurred - ${error}`);
+    }
   }
 };
 
 exports.signin = (req, res) => {
-
   // define joi schema
   const schema = joi.object({
     email: joi
@@ -117,7 +112,7 @@ exports.signin = (req, res) => {
           expiresIn: 86400,
         });
 
-         const authorities = `ROLE_ ${user.roles.name.toUpperCase()}`;
+        const authorities = `ROLE_ ${user.roles.name.toUpperCase()}`;
 
         if (!session.getItem("userId")) {
           session.setItem("userId", `${user._id}`);
@@ -136,38 +131,22 @@ exports.signin = (req, res) => {
 
 // handler for sending mail to users
 exports.mailHandler = (req, res) => {
-  const userId = session.getItem("userId");
-  if (userId) {
-    user.findById(userId).exec((err, user) => {
-      if (err) {
-        res.status(500).send("Unauthorized access, please login!");
-        return;
-      }
+  // token to be sign off with password reset request
+  var token = jwt.sign({ action: "forgotPassword" }, config.auth.secret, {
+    expiresIn: "120000",
+  });
 
-      // token to be sign off with password reset request
-      var token = jwt.sign({ id: user.id }, config.auth.secret, {
-        expiresIn: "120000",
-      });
-
-      const html = `<p> Please use the link below to reset your password.</p>
+  const html = `<p> Please use the link below to reset your password.</p>
     <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&action=forgotPassword">click here to reset your password</a></p>`;
 
-      send_mail({
-        to: config.nodemailer_recipient,
-        subject: "password reset verification",
-        html: `<h3>Reset password</h3>
+  send_mail({
+    to: config.nodemailer_recipient,
+    subject: "password reset verification",
+    html: `<h3>Reset password</h3>
       <p>${html}</p>`,
-      });
+  });
 
-      res
-        .status(200)
-        .send({ message: "Mail sent successfully.", token: token });
-    });
-  } else {
-    res
-      .status(400)
-      .send({ message: "session not set or expired. Login to continue" });
-  }
+  res.status(200).send({ message: "Mail sent successfully.", token: token });
 };
 
 exports.resetPassword = (req, res) => {

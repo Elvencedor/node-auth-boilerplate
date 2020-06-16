@@ -1,8 +1,8 @@
 const nodemailer = require("nodemailer");
-const config = require("../../config/config");
+const config = require("../../config/index");
 const db = require("../models");
 
-const user = db.user;
+const user = db.User;
 
 function send_mail({ from = 'test@domain.com', to, subject, html }) {
   const transporter = nodemailer.createTransport(config.nodemailerOptions);

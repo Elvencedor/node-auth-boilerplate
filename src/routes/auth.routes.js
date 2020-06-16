@@ -15,8 +15,7 @@ module.exports = function (app) {
   app.post(
     '/api/register',
     [
-      verifyUser.duplicityCheck,
-      verifyUser.roleValidityCheck
+      verifyUser.duplicityCheck
     ],
     controller.signup
   )
