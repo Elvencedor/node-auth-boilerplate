@@ -18,4 +18,6 @@ module.exports = {
   auth: {
     secret: process.env.SECRET,
   },
+  host: process.env.HOST,
+  port: process.env.PORT || 3000
 };
