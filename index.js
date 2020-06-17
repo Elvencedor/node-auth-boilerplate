@@ -33,6 +33,16 @@ require('./src/routes/auth.routes')(app)
 require('./src/routes/user.routes')(app)
 
 
-app.listen(config.port, () => {
+
+app
+.use((req, res, next) => {
+  // 404
+  return res.status(404).json({ message: 'NotFound' });
+}) 
+.use((err, req, res, next) => {
+  console.error(err);
+  return res.status(500).json({ message: 'InternalError' });
+})
+.listen(config.port, () => {
   console.log(`Server started on port ${config.port}`);
 });

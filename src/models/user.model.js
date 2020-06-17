@@ -1,62 +1,44 @@
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 const bcrypt = require('bcrypt');
 
-const UserSchema = mongoose.model(
-  'User',
-  new mongoose.Schema({
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true
-    },
-    role: {
-      type: String,
-      enum: ['public','merchant','internal','admin'],
-      default: 'public' 
-    },
-    phone: {
-      type: String
-    },
-    address: {
-      street: { type: String },
-      city: { type: String },
-      state: { type: String },
-      country: { type: String, default: 'US' },
-      zipCode: { type: String }
-    },
-    isActive: {
-      type: Boolean,
-      default: false
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now()
-    },
-    updateAt: {
-      type: Date,
-      default: Date.now()
-    },
-  })
-)
-
-// Make sure the email has not been used.
-UserSchema.path('email').validate({
-  validator: function(email, callback) {
-    const UserInstance = mongoose.model('User');
-    // Check only when it is a new user or when the email has been modified.
-    if (this.isNew || this.isModified('email')) {
-      UserInstance.find({ email: email }).exec(function(err, users) {
-        callback(!err && users.length === 0);
-      });
-    } else {
-      callback(true);
-    }
+const UserSchema = new Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: [true, 'This email already exists. Please try to log in instead.'],
   },
-  message: 'This email already exists. Please try to log in instead.',
+  password: {
+    type: String,
+    required: true
+  },
+  role: {
+    type: String,
+    enum: ['public','merchant','internal','admin'],
+    default: 'public' 
+  },
+  phone: {
+    type: String
+  },
+  address: {
+    street: { type: String },
+    city: { type: String },
+    state: { type: String },
+    country: { type: String, default: 'US' },
+    zipCode: { type: String }
+  },
+  isActive: {
+    type: Boolean,
+    default: false
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now()
+  },
+  updateAt: {
+    type: Date,
+    default: Date.now()
+  },
 });
 
 
@@ -65,6 +47,18 @@ UserSchema.methods.generateHash = function(password) {
   return bcrypt.hashSync(password, 8);
 };
 
+UserSchema.statics.getUserByEmailAndPassword = async function(email, password) {
+  
+  const user = await User.findOne({ email });
+  if (!user || !user.validatePassword(password)) {
+    throw new Error('Wrong Email or Password');
+  }
+  return user;
+};
+
+UserSchema.methods.validatePassword = function(password) {
+  return bcrypt.compareSync(password, this.password);
+};
 
 // Pre-save hook to ensure consistency.
 UserSchema.pre('save', function(next) {
@@ -75,6 +69,6 @@ UserSchema.pre('save', function(next) {
   next();
 });
 
+const User = mongoose.model('User', UserSchema);
 
-
-module.exports = UserSchema;
+module.exports = User;

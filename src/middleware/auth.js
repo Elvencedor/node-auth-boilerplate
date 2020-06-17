@@ -1,9 +1,25 @@
 const jwt = require("jsonwebtoken");
+const Joi = require('@hapi/joi');
 const session = require('sessionstorage')
 const config = require("../../config/index");
 const db = require("../models");
 
-const user = db.User;
+const UserModel = db.User;
+
+const validateEmailPassword = async (req, res, next) => {
+  const schema = Joi.object({
+    password: Joi.string().required(),
+    email: Joi.string().email().required(),
+  });
+
+  try {
+    await schema.validateAsync(req.body);
+    return next();
+  } catch (err) {
+    console.error(err);
+    return next('Invalid email or/and password');
+  }
+}
 
 // verify token sent with request header or body
 const verifyToken = (req, res, next) => {
@@ -25,7 +41,7 @@ const verifyToken = (req, res, next) => {
 // check for role validity of admin
 const isAdmin = (req, res, next) => {
 
-  return user.findById(req.userId).exec((err, user) => {
+  return UserModel.findById(req.userId).exec((err, user) => {
     if (err) {
       res.status(500).send({ message: err });
       return;
@@ -44,12 +60,12 @@ const fetchSelf = (req, res) => {
   const userId = session.getItem('userId')
 
   if (userId) {
-    user.findById(userId).exec((err, user) => {
+    UserModel.findById(userId).exec((err, user) => {
       if (err) {
         res.status(400).send("User could not be found!");
       }
 
-      let token = req.headers["x-access-token"];
+      let token = req.headers['x-access-token'] || req.headers['authorization'];
 
       if (!token) {
         return res
@@ -63,12 +79,12 @@ const fetchSelf = (req, res) => {
         }
       });
 
-      res
+      return res
         .status(200)
-        .send({ message: { username: user.username, email: user.email } });
+        .send({ user });
     });
   } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
+    return res.status(400).send({message: 'session not set or expired. Login to continue'})
   }
   
 };
@@ -78,7 +94,7 @@ const fetchUserById = (req, res, next) => {
   const userId = session.getItem("userId");
 
   if (userId) {
-    user.findById(userId).exec((err,user) => {
+    UserModel.findById(userId).exec((err,user) => {
       if (err) {
         res.status(400).send("User could not be found!");
       }
@@ -111,7 +127,7 @@ const fetchUserById = (req, res, next) => {
 // fetch all existing users in database
 const fetchAllUsers = (req, res) => {
   const users = []
-  user.find().exec((err, user) => {
+  UserModel.find().exec((err, user) => {
     if (err) {
       res.status(500).send({message: `An error occurred: ${err}`})
     }
@@ -125,7 +141,7 @@ const fetchAllUsers = (req, res) => {
 
 const isMerchant = (req, res, next) => {
   if (req.userId) {
-    user.findById(req.userId).exec((err, user) => {
+    UserModel.findById(req.userId).exec((err, user) => {
       if (err) {
         res.status(500).send({ message: err });
         return;
@@ -148,7 +164,8 @@ const authJwt = {
   isMerchant,
   fetchSelf,
   fetchUserById,
-  fetchAllUsers
+  fetchAllUsers,
+  validateEmailPassword
 };
 
 module.exports = authJwt;
