@@ -1,14 +1,13 @@
 const config = require("../../config/index");
-const db = require("../models");
 const send_mail = require("./mailer");
 var jwt = require("jsonwebtoken");
-var bcrypt = require("bcryptjs");
 var session = require("sessionstorage");
 const joi = require("@hapi/joi");
+const { User } = require("../models");
 
-const user = db.User;
+const UserModel = User;
 
-exports.signup = (req, res) => {
+exports.signup = async (req, res) => {
   // define joi schema
   const schema = joi.object({
     email: joi.string().email().required().description("email is required"),
@@ -17,168 +16,150 @@ exports.signup = (req, res) => {
       .string()
       .allow("public", "internal", "merchant")
       .default("public"),
-  });
+  }).allow(true);
 
-  // validate user request and destructure joi validation result
-  const { value, error } = schema.required().validate({
+
+  try {
+    await schema.validateAsync(req.body)
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({ message: error.details });
+  }
+  
+  // instantiate user model
+  const user = new UserModel({
     email: req.body.email,
     password: req.body.password,
     role: req.body.role,
+    address: req.body.address,
   });
+  const { role, email } = user;
 
-  if (value) {
-    if (error) {
-      res.status(500).send({ message: error.details });
-      return;
-    }
-
-    // instantiate user model
-    const User = new user({
-      email: req.body.email,
-      password: bcrypt.hashSync(req.body.password, 8),
-      role: req.body.role,
-      address: req.body.address,
-    });
-
-    // create new user document in database
-    try {
-      User.save((err, user) => {
-        if (err) {
-          res.status(500).send({ message: err });
-          return;
-        }
-
-        return res
-          .status(200)
-          .send({ message: "User registration successful!" });
-      });
-    } catch (error) {
-      return res.status(403).send(`An error occurred - ${error}`);
-    }
+  try {
+    await user.save();
+    return res
+      .status(200)
+      .send({ message: "User registration successful!", user: { role, email } });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .send({ message: 'Error creating a user' });
   }
 };
 
-exports.signin = (req, res) => {
-  // define joi schema
-  const schema = joi.object({
-    email: joi
-      .string()
-      .email({ minDomainSegments: 2, tlds: { allow: ["com", "net"] } })
-      .required(),
-    password: joi.string().min(8),
-  });
-
-  // validate user request and destructure joi validation result
-  const { value, error } = schema.required().validate({
-    email: req.body.email,
-    password: req.body.password,
-  });
-
-  if (value) {
-    if (error) {
-      res.status(500).send({ message: error.details });
-      return;
-    }
-
-    user
-      .findOne({
-        email: req.body.email,
-      })
-      .exec((err, user) => {
-        if (err) {
-          res.status(500).send({ message: err });
-          return;
-        }
-
-        if (!user) {
-          return res.status(404).send({ message: "User not found." });
-        }
-
-        // compare for validity of password string
-        var passwordIsValid = bcrypt.compareSync(
-          req.body.password,
-          user.password
-        );
-
-        if (!passwordIsValid) {
-          return res.status(401).send({
-            accessToken: null,
-            message: "Invalid Password!",
-          });
-        }
-
-        // sign off new token with the request
-        var token = jwt.sign({ id: user.id }, config.auth.secret, {
-          expiresIn: 86400,
-        });
-
-        const authorities = `ROLE_ ${user.roles.name.toUpperCase()}`;
-
-        if (!session.getItem("userId")) {
-          session.setItem("userId", `${user._id}`);
-        }
-
-        res.status(200).send({
-          id: user._id,
-          email: user.email,
-          roles: authorities,
-          accessToken: token,
-          session: session.getItem("userId"),
-        });
-      });
+exports.login = async (req, res, next) => {
+  
+  const { email, password } = req.body;
+  let user;
+  try {
+    user = await UserModel.getUserByEmailAndPassword(email, password);
+  } catch (err) {
+    console.error(err);
+    return next(err);
   }
+
+  // sign off new token with the request
+  const token = jwt.sign({ 
+    user_id: user._id,
+    email: user.email,
+    role: user.role
+  }, config.auth.secret, {
+    expiresIn: 86400,
+  });
+
+  // TODO: session should live in Redis
+  if (!session.getItem("userId")) {
+    session.setItem("userId", `${user._id}`);
+  }
+   
+  return res.status(200).send({
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    accessToken: token,
+    session: session.getItem("userId"),
+  });
 };
 
 // handler for sending mail to users
-exports.mailHandler = (req, res) => {
-  user.findOne({ email: req.body.email }).exec((err, result) => {
-    if (err) {
-      return res
-        .status(500)
-        .send({ message: `An unknown error occurred - ${err}` });
-    }
+exports.mailHandler = async (req, res) => {
+  const { email } = req.body;
+  let user;
+  try {
+    user = await UserModel.findOne({ email });
 
-    if (!result) {
-       return res.status(404).send({
-         message: `You can't reset password with email not registered with the system.`,
-       });
-    }
-    // token to be sign off with password reset request
-      var token = jwt.sign({ action: "forgotPassword" }, config.auth.secret, {
-        expiresIn: "120000",
-      });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .send({ message: `An unknown error occurred - ${err}` });
+  }
 
-      const html = `<p> Please use the link below to reset your password.</p>
+  if (!user || !user.email) {
+    return res.status(200).send({
+      message: "Mail sent successfully.",
+      token: null,
+    });
+  }
+
+  // token to be sign off with password reset request
+  var token = jwt.sign({ action: "forgotPassword" }, config.auth.secret, {
+    expiresIn: "120000",
+  });
+
+  const html = `<p> Please use the link below to reset your password.</p>
     <p> <a href="http://localhost:3000/api/users/resetPassword?token=${token}&action=forgotPassword">click here to reset your password</a></p>`;
 
-      send_mail({
-        to: config.nodemailer_recipient,
-        subject: "password reset verification",
-        html: `<h3>Reset password</h3>
-      <p>${html}</p>`,
-      });
-
-      res.status(200).send({
-        message: "Mail sent successfully.",
-        token: token,
-      });
+  send_mail({
+    to: config.nodemailer_recipient,
+    subject: "password reset verification",
+    html: `<h3>Reset password</h3>
+  <p>${html}</p>`,
   });
+
+  return res.status(200).send({
+    message: "Mail sent successfully.",
+    token: token,
+  });
+
 };
 
-exports.resetPassword = (req, res) => {
-  const token = req.query.token;
-  jwt.verify(token, config.auth.secret, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: `Unauthorized access: ${err}` });
-    }
-
-    var initialVal = { password: `${user.password}` };
-    var newVal = {
-      $set: { password: `${bcrypt.hashSync(req.body.password, 8)}` },
-    };
-
-    user.updateOne(initialVal, newVal);
-
-    res.status(200).send({ message: "Password reset was successful" });
+const verifyJWT = (token) => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, config.auth.secret, (err, decoded) => {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(decoded);
+    });
   });
+}
+
+exports.resetPassword = async (req, res) => {
+  const token = req.query.token;
+  let decoded;
+  try {
+    decoded = await verifyJWT(token);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({ message: "Error updating user" });
+  }
+
+  const { email } = decoded;
+  const { password } = req.body;
+
+  try {
+    await UserModel.findOneAndUpdate(
+        { email },
+        {$set: { password }},
+        {new : true}
+    );
+    console.log(user);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send({ message: "Error updating user" });
+  }
+
+  return res.status(200).send({ message: "Password reset was successful" });
 };

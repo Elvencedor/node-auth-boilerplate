@@ -11,12 +11,12 @@ module.exports = {
   },
   nodemailer_recipient: process.env.NODEMAILER_RECIPIENT,
   dbOptions: {
-    host: process.env.HOST,
-    port: process.env.DB_PORT,
-    db: process.env.DB_NAME,
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: process.env.DB_PORT || 27017,
+    db: process.env.DB_NAME || 'perdiem', 
   },
   auth: {
-    secret: process.env.SECRET,
+    secret: process.env.JWT_SECRET || 'secret...',
   },
   host: process.env.HOST,
   port: process.env.PORT || 3000

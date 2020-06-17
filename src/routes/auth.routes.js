@@ -1,7 +1,7 @@
 const { verifyUser } = require('../middleware')
 const controller = require('../controllers/auth.controller')
 const auth = require('../middleware/auth')
-
+const { validateEmailPassword } = require('../middleware/auth');
 module.exports = function (app) {
   app.use(function (req, res, next) {
     res.header(
@@ -9,26 +9,15 @@ module.exports = function (app) {
       'x-access-token, Origin, Content-Type, Accept'
     )
 
-    next()
+    return next()
   })
 
-  app.post(
-    '/api/register',
-    [
-      verifyUser.duplicityCheck
-    ],
-    controller.signup
-  )
-
-  app.post('/api/users/auth', controller.signin)
-
-  app.get('/api/users/getUser', auth.fetchSelf)
-
-  app.get('/api/users/getUser/:id', auth.fetchUserById)
-
-  app.get('/api/users/getAllUsers', auth.fetchAllUsers)
-
-  app.get('/api/users/sendMail', controller.mailHandler)
-
-  app.post('/api/users/resetPassword', controller.resetPassword)
+  app
+    .post('/api/register', controller.signup)
+    .post('/api/users/auth', validateEmailPassword, controller.login)
+    .get('/api/users/me', auth.fetchSelf)
+    .get('/api/users/:id', auth.fetchUserById)
+    .get('/api/users', auth.fetchAllUsers)
+    .get('/api/users/sendMail', controller.mailHandler)
+    .post('/api/users/resetPassword', controller.resetPassword)
 }

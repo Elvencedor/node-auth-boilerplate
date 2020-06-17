@@ -1,9 +1,25 @@
 const jwt = require("jsonwebtoken");
+const Joi = require('@hapi/joi');
 const session = require('sessionstorage')
 const config = require("../../config/index");
 const db = require("../models");
 
-const user = db.User;
+const UserModel = db.User;
+
+const validateEmailPassword = async (req, res, next) => {
+  const schema = Joi.object({
+    password: Joi.string().required(),
+    email: Joi.string().email().required(),
+  });
+
+  try {
+    await schema.validateAsync(req.body);
+    return next();
+  } catch (err) {
+    console.error(err);
+    return next('Invalid email or/and password');
+  }
+}
 
 // verify token sent with request header or body
 const verifyToken = (req, res, next) => {
@@ -18,28 +34,24 @@ const verifyToken = (req, res, next) => {
       return res.status(401).send({ message: `Unauthorized: ${err}` });
     }
     req.userId = decoded.id;
-    next();
+    return next();
   });
 };
 
 // check for role validity of admin
 const isAdmin = (req, res, next) => {
 
-  user.findById(req.userId).exec((err, user) => {
+  return UserModel.findById(req.userId).exec((err, user) => {
     if (err) {
       res.status(500).send({ message: err });
       return;
     }
 
-    const roles = user.roles
+    if (user.role === 'admin') {
+      return next();
+    }
 
-    // check for authenticity of user making request
-      if (roles === "admin") {
-        next();
-        return;
-      }
-
-    res.status(403).send({ message: "Admin role required!" });
+    return res.status(403).send({ message: "Admin role required!" });
   });
 };
 
@@ -48,12 +60,12 @@ const fetchSelf = (req, res) => {
   const userId = session.getItem('userId')
 
   if (userId) {
-    user.findById(userId).exec((err, user) => {
+    UserModel.findById(userId).exec((err, user) => {
       if (err) {
         res.status(400).send("User could not be found!");
       }
 
-      let token = req.headers["x-access-token"];
+      let token = req.headers['x-access-token'] || req.headers['authorization'];
 
       if (!token) {
         return res
@@ -67,12 +79,12 @@ const fetchSelf = (req, res) => {
         }
       });
 
-      res
+      return res
         .status(200)
-        .send({ message: { username: user.username, email: user.email } });
+        .send({ user });
     });
   } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
+    return res.status(400).send({message: 'session not set or expired. Login to continue'})
   }
   
 };
@@ -82,7 +94,7 @@ const fetchUserById = (req, res, next) => {
   const userId = session.getItem("userId");
 
   if (userId) {
-    user.findById(userId).exec((err,user) => {
+    UserModel.findById(userId).exec((err,user) => {
       if (err) {
         res.status(400).send("User could not be found!");
       }
@@ -101,30 +113,21 @@ const fetchUserById = (req, res, next) => {
           return res.status(401).send({ message: `Unauthorized: ${err}` });
         }
       });
-
-      const roles = db.ROLES
-
-      // iterate through roles array to very role of user
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i] === "admin") {
-          next();
-          return;
-        }
+      if (user.role === 'admin') {
+        return next();
       }
 
-      res.status(403).send({ message: "Admin role required!" });
+      return res.status(403).send({ message: "Admin role required!" });
     });
-  } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
-  }
+  } 
   
-  
+  return res.status(400).send({message: 'session not set or expired. Login to continue'})  
 }
 
 // fetch all existing users in database
 const fetchAllUsers = (req, res) => {
   const users = []
-  user.find().exec((err, user) => {
+  UserModel.find().exec((err, user) => {
     if (err) {
       res.status(500).send({message: `An error occurred: ${err}`})
     }
@@ -138,26 +141,19 @@ const fetchAllUsers = (req, res) => {
 
 const isMerchant = (req, res, next) => {
   if (req.userId) {
-    user.findById(req.userId).exec((err, user) => {
+    UserModel.findById(req.userId).exec((err, user) => {
       if (err) {
         res.status(500).send({ message: err });
         return;
       }
-
-      const roles = user.roles
-
-      // iterate through roles array to very role of user
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i] === "merchant") {
-          next();
-          return;
-        }
+      if (user.role === 'merchant') {
+        return next();
       }
-
-      res.status(403).send({ message: "Merchant role required!" });
+      
+      return res.status(403).send({ message: "Merchant role required!" });
     });
   } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
+    return res.status(400).send({message: 'session not set or expired. Login to continue'})
   }
   
 }
@@ -168,7 +164,8 @@ const authJwt = {
   isMerchant,
   fetchSelf,
   fetchUserById,
-  fetchAllUsers
+  fetchAllUsers,
+  validateEmailPassword
 };
 
 module.exports = authJwt;
