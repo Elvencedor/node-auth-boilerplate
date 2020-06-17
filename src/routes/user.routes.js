@@ -1,36 +1,12 @@
-const { authJwt } = require('../middleware')
+const express = require('express');
+const router = express.Router();
 const controller = require('../controllers/user.controller')
+const { verifyToken, isAdmin } = require('../middleware').authJwt;
 
-module.exports = function (app) {
-  app.use(function (req, res, next) {
-    res.header(
-      'Access-Control-Allow-Header',
-      'x-access-token, Origin, Content-Type, Accept'
-    )
+router
+  .get('/', controller.allAccess)
+  .get('/api/test/user', verifyToken, controller.userBoard)
+  .get('/api/test/admin', verifyToken, isAdmin, controller.adminBoard)
+  .get('/api/stores/access', verifyToken, isMerchant, controller.merchantStore);
 
-    next()
-  })
-
-  app.get(
-    '/',
-    controller.allAccess
-  )
-
-  app.get(
-    '/api/test/user',
-    [authJwt.verifyToken],
-    controller.userBoard
-  )
-
-  app.get(
-    '/api/test/admin',
-    [authJwt.verifyToken, authJwt.isAdmin],
-    controller.adminBoard
-  )
-
-  app.get(
-    '/api/stores/access',
-    [authJwt.verifyToken, authJwt.isMerchant],
-    controller.merchantStore
-  )
-}
+module.exports = router;
