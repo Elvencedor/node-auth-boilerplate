@@ -5,7 +5,16 @@ const Store = mongoose.model(
   new mongoose.Schema({
     name: {
       type: String,
-      required: true
+      required: true,
+      unique: true
+    },
+    title: {
+      type: String,
+      required: true,
+      unique: false,
+    },
+    description: {
+      type: String
     },
     phone: {
       type: String,
@@ -20,7 +29,8 @@ const Store = mongoose.model(
     },
     slug: {
       type: String,
-      required: true
+      required: true,
+      unique: true
     }
   })
 )

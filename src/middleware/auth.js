@@ -18,28 +18,24 @@ const verifyToken = (req, res, next) => {
       return res.status(401).send({ message: `Unauthorized: ${err}` });
     }
     req.userId = decoded.id;
-    next();
+    return next();
   });
 };
 
 // check for role validity of admin
 const isAdmin = (req, res, next) => {
 
-  user.findById(req.userId).exec((err, user) => {
+  return user.findById(req.userId).exec((err, user) => {
     if (err) {
       res.status(500).send({ message: err });
       return;
     }
 
-    const roles = user.roles
+    if (user.role === 'admin') {
+      return next();
+    }
 
-    // check for authenticity of user making request
-      if (roles === "admin") {
-        next();
-        return;
-      }
-
-    res.status(403).send({ message: "Admin role required!" });
+    return res.status(403).send({ message: "Admin role required!" });
   });
 };
 
@@ -101,24 +97,15 @@ const fetchUserById = (req, res, next) => {
           return res.status(401).send({ message: `Unauthorized: ${err}` });
         }
       });
-
-      const roles = db.ROLES
-
-      // iterate through roles array to very role of user
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i] === "admin") {
-          next();
-          return;
-        }
+      if (user.role === 'admin') {
+        return next();
       }
 
-      res.status(403).send({ message: "Admin role required!" });
+      return res.status(403).send({ message: "Admin role required!" });
     });
-  } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
-  }
+  } 
   
-  
+  return res.status(400).send({message: 'session not set or expired. Login to continue'})  
 }
 
 // fetch all existing users in database
@@ -143,21 +130,14 @@ const isMerchant = (req, res, next) => {
         res.status(500).send({ message: err });
         return;
       }
-
-      const roles = user.roles
-
-      // iterate through roles array to very role of user
-      for (let i = 0; i < roles.length; i++) {
-        if (roles[i] === "merchant") {
-          next();
-          return;
-        }
+      if (user.role === 'merchant') {
+        return next();
       }
-
-      res.status(403).send({ message: "Merchant role required!" });
+      
+      return res.status(403).send({ message: "Merchant role required!" });
     });
   } else {
-    res.status(400).send({message: 'session not set or expired. Login to continue'})
+    return res.status(400).send({message: 'session not set or expired. Login to continue'})
   }
   
 }

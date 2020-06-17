@@ -1,13 +1,19 @@
-const mongoose = require('mongoose')
-mongoose.Promise = global.Promise
+const mongoose = require('mongoose');
+mongoose.Promise = global.Promise;
+const Roles = {
+    'admin': 'admin',
+    'public': 'public',
+    'merchant': 'merchant',
+    'internal': 'internal'
+};
 
-const db = {}
+const db = {};
 
-db.mongoose = mongoose
+db.mongoose = mongoose;
 
 db.User = require('./user.model');
 db.Store = require('./store.model');
 
-db.ROLES = ['public', 'admin', 'merchant', 'internal']
+db.ROLES = Object.keys(Roles);
 
-module.exports = db
+module.exports = db;

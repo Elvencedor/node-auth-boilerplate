@@ -1,11 +1,13 @@
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt');
 
-const User = mongoose.model(
+const UserSchema = mongoose.model(
   'User',
   new mongoose.Schema({
     email: {
       type: String,
-      required: true
+      required: true,
+      unique: true,
     },
     password: {
       type: String,
@@ -34,8 +36,45 @@ const User = mongoose.model(
       type: Date,
       default: Date.now()
     },
-    
+    updateAt: {
+      type: Date,
+      default: Date.now()
+    },
   })
 )
 
-module.exports = User;
+// Make sure the email has not been used.
+UserSchema.path('email').validate({
+  validator: function(email, callback) {
+    const UserInstance = mongoose.model('User');
+    // Check only when it is a new user or when the email has been modified.
+    if (this.isNew || this.isModified('email')) {
+      UserInstance.find({ email: email }).exec(function(err, users) {
+        callback(!err && users.length === 0);
+      });
+    } else {
+      callback(true);
+    }
+  },
+  message: 'This email already exists. Please try to log in instead.',
+});
+
+
+// Generate a password hash (with an auto-generated salt for simplicity here).
+UserSchema.methods.generateHash = function(password) {
+  return bcrypt.hashSync(password, 8);
+};
+
+
+// Pre-save hook to ensure consistency.
+UserSchema.pre('save', function(next) {
+  // Make sure the password is hashed before being stored.
+  if (this.isModified('password')) {
+    this.password = this.generateHash(this.password);
+  }
+  next();
+});
+
+
+
+module.exports = UserSchema;

@@ -9,26 +9,15 @@ module.exports = function (app) {
       'x-access-token, Origin, Content-Type, Accept'
     )
 
-    next()
+    return next()
   })
 
-  app.post(
-    '/api/register',
-    [
-      verifyUser.duplicityCheck
-    ],
-    controller.signup
-  )
-
-  app.post('/api/users/auth', controller.signin)
-
-  app.get('/api/users/getUser', auth.fetchSelf)
-
-  app.get('/api/users/getUser/:id', auth.fetchUserById)
-
-  app.get('/api/users/getAllUsers', auth.fetchAllUsers)
-
-  app.get('/api/users/sendMail', controller.mailHandler)
-
-  app.post('/api/users/resetPassword', controller.resetPassword)
+  app
+    .post('/api/register', controller.signup)
+    .post('/api/users/auth', controller.signin)
+    .get('/api/users/getUser', auth.fetchSelf)
+    .get('/api/users/getUser/:id', auth.fetchUserById)
+    .get('/api/users/getAllUsers', auth.fetchAllUsers)
+    .get('/api/users/sendMail', controller.mailHandler)
+    .post('/api/users/resetPassword', controller.resetPassword)
 }

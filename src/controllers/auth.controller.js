@@ -112,8 +112,8 @@ exports.signin = (req, res) => {
           expiresIn: 86400,
         });
 
-        const authorities = `ROLE_ ${user.roles.name.toUpperCase()}`;
-
+       
+        // TODO: session should live in Redis
         if (!session.getItem("userId")) {
           session.setItem("userId", `${user._id}`);
         }
@@ -121,7 +121,7 @@ exports.signin = (req, res) => {
         res.status(200).send({
           id: user._id,
           email: user.email,
-          roles: authorities,
+          role: user.role,
           accessToken: token,
           session: session.getItem("userId"),
         });
