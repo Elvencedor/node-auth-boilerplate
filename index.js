@@ -1,8 +1,13 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const db = require("./src/models/index");
-const config = require("./config/index");
+// 3rd party packages
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+// Internals
+const config = require('./config/index');
+const db = require('./src/models/index');
+const authRoutes = require('./src/routes/auth.routes');
+const usersRoutes = require('./src/routes/user.routes');
 
 const app = express();
 
@@ -10,10 +15,9 @@ var corsOptions = {
   origin: `${config.host}:${config.port}`,
 };
 
-app.use(cors(corsOptions));
-
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors(corsOptions))
+  .use(bodyParser.json())
+  .use(bodyParser.urlencoded({ extended: true }));
 
 db.mongoose
   .connect(`mongodb://${config.dbOptions.host}:${config.dbOptions.port}/${config.dbOptions.db}`, {
@@ -28,13 +32,16 @@ db.mongoose
     process.exit();
   });
 
+app.use(function (req, res, next) {
+  res.header(
+    'Access-Control-Allow-Origin',
+    'x-access-token, Origin, Content-Type, Accept'
+  )
 
-require('./src/routes/auth.routes')(app)
-require('./src/routes/user.routes')(app)
-
-
-
-app
+  return next()
+})
+.use(authRoutes)
+.use(usersRoutes)
 .use((req, res, next) => {
   // 404
   return res.status(404).json({ message: 'NotFound' });
